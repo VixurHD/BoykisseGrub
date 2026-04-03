@@ -30,33 +30,12 @@ def tileInLenImg(img: Image.Image, len_: int) -> Image.Image:
         canvas.paste(img, (i*img.width, 0));
     return canvas;
 
-def blurGaussian(img: Image.Image, radius: float = 2) -> Image.Image:
-    return img.filter(ImageFilter.GaussianBlur(radius))
-
-# Trangle Blur (camera object)
-def blurLens(img: Image.Image, radius: float = 5) -> Image.Image:
-    def triangleKernel(r: float) -> NDArray[np.float64]:
-        size: int = int(2*r + 1)
-        k: NDArray[np.float64] = np.array([r + 1 - abs(i - r) for i in range(size)], dtype=float)
-        return k / k.sum()
-
-    def convolve(arr: NDArray[np.float64], kernel: NDArray[np.float64], axis: int) -> NDArray[np.float64]:
-        pad: int = len(kernel) // 2
-        arr = np.pad(arr, pad_width=[(pad, pad) if i == axis else (0, 0) for i in range(arr.ndim)], mode="reflect")
-        out: NDArray[np.float64] = np.zeros_like(arr)
-        for i, w in enumerate(kernel):
-            if axis == 0:
-                out += w * arr[i:i + arr.shape[0]]
-            else:
-                out += w * arr[:, i:i + arr.shape[1]]
-        return out
-
-    k: NDArray[np.float64] = triangleKernel(radius)
-    arr: NDArray[np.float64] = np.array(img, dtype=float)
-    arr: NDArray[np.float64] = convolve(arr, kernel=k, axis=0)
-    arr: NDArray[np.float64] = convolve(arr, kernel=k, axis=1)
-    return Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8), mode=img.mode)
-
+def glow(img: Image.Image) -> Image.Image:
+    out = Image.new("RGBA", img.size, (0,0,0,0))
+    for radius in [20, 10, 5, 4, 2, 1]:
+        layer = img.filter(ImageFilter.GaussianBlur(radius))
+        out = Image.alpha_composite(out, layer)
+    return out
 
 def drawText(img: Image.Image, text: str, x: int, y: int, size: int = 32, color: T_RGB = (0,0,0)) -> Image.Image:
     font: ImageFont.FreeTypeFont = ImageFont.truetype("DejaVuSans.ttf", size)
@@ -98,52 +77,27 @@ def svgToPil(svg_path: T_PATH_STR, max_width: int, max_height: int, dpi: int = 9
     assert png_bytes is not None
     return Image.open(io.BytesIO(png_bytes)).convert("RGBA")
 
+def createFoDistr(name_distr: str, screen_size: tuple[int, int] = (1920, 1080)):
+    img_logo: Image.Image = svgToPil(f"./images/distrs/{name_distr}/logo.svg", 700, 900)
+    img_text: Image.Image = svgToPil(f"./images/distrs/{name_distr}/text.svg", 900, 300)
+    img_canvas: Image.Image = Image.new("RGBA", screen_size, (0, 7, 17, 255));
+
+    img_logo_glow = glow(img_logo);
+    # img_text_blur = blurLens(img_text, 8);
+
+    img_compositor = Image.new("RGBA", screen_size, (0, 0, 0, 0));
+
+    img_compositor.paste(img_logo_glow, (0, 0)); #TODO set correct positions
+    img_canvas = Image.alpha_composite(img_canvas, img_compositor);
+
+    # img_compositor.paste(img_text_blur, (700, 0)); #TODO set correct positions
+    # img_canvas = Image.alpha_composite(img_canvas, img_compositor);
+    # img_canvas.paste(img_text, (700, 0), img_text);
+
+    save(img_canvas, "./out.png");
+
 if __name__ == "__main__":
-    # TODO
-    pass
-
-
-# # test
-# img: Image.Image = load("image.png")
-
-# img = blurGaussian(img, 3)
-
-# left, top, right, bottom = textSize("TestTestTTTTTTestestestestestest", 40)
-# text_w = right - left
-
-# width_right_image:  int = img.width // 3;
-# width_left_image:   int = img.width // 3;
-# width_middle_image: int = img.width - 2*(img.width // 3);
-
-# left_img: Image.Image = img.crop( (
-#     0                , 0,         # of
-#     width_left_image, img.height  # to
-# ) )
-# middle_img: Image.Image = img.crop( (
-#     width_left_image  , 0,
-#     width_left_image + width_middle_image, img.height
-# ) )
-# right_img: Image.Image = img.crop( (
-#     width_left_image + width_middle_image, 0,
-#     img.width, img.height
-# ) )
-
-# left_part: Image.Image = left_img;
-# right_part: Image.Image = right_img
-# middle_part: Image.Image = tileInLenImg(
-#     middle_img,
-#     round(text_w) - width_right_image*2
-# )
-# canvas = Image.new(
-#     "RGBA",
-#     (left_part.width + right_part.width + middle_part.width, img.height),
-#     (0, 0, 0, 0)
-# )
-
-# canvas.paste(left_part, (0, 0))
-# canvas.paste(middle_part, (left_part.width, 0))
-# canvas.paste(right_part, (left_part.width + middle_part.width, 0))
-
-# img = drawText(canvas, "TestTestTTTTTTestestestestestest", 50, 50, size=40)
-
-# save(img, "out.png")
+    import sys
+    args = sys.argv;
+    print(args);
+    createFoDistr(args[1]);
