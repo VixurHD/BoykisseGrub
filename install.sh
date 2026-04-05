@@ -14,6 +14,8 @@ GRUB_CFG="/etc/default/grub"
 GRUB_FILE="/boot/grub/grub.cfg"
 CAN_RECOVERY=false
 
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+
 TASK_RECOVERY=false
 TASK_INSTALL=false
 
@@ -57,60 +59,60 @@ echo '
 
 # Ensure theme directory exists
 echo "Checking for theme directory..."
-mkdir -p "$THEME_DIR"
-
-# Checking recovery dir and check recovery files
-echo "Checking for recovery directory..."
-if [ -d "$RECOVERY_DIR" ]; then
-    if [ -f "$RECOVERY_DIR/10_linux" ]; then
-        CAN_RECOVERY=true
-    fi
-else
-    mkdir -p "$RECOVERY_DIR"
-fi
-
-if $CAN_RECOVERY; then
-    echo "We can restore grub to its previous state"
-    while true; do
-    read -p "Are we want restore grub? [y/n]: " answer
-        case "$answer" in
-            y|Y) TASK_RECOVERY=true; break ;;
-            n|N) TASK_RECOVERY=false; break ;;
-            *) echo "Please enter y or n" ;;
-        esac
-    done
-fi
-
-if ! $TASK_RECOVERY; then
-    while true; do
-    read -p "Do you want install $THEME_NAME? [y/n]: " answer
-        case "$answer" in
-            y|Y) TASK_INSTALL=true; break ;;
-            n|N) TASK_INSTALL=false; break ;;
-            *) echo "Please enter y or n" ;;
-        esac
-    done
-fi
-
-echo "Planned actions:"
-if $TASK_RECOVERY; then
-    echo "Recovery your grub on saved position"
-elif $TASK_INSTALL; then
-    echo "Install grub theme on your system"
-fi
+mkdir -p "$SCRIPT_DIR/$THEME_DIR"
 
 PROCEED=false
 
-read -p "Continue? [y/N]: " answer
+read -p "Do you want install $THEME_NAME?  [y/N]: " answer
 case "$answer" in
-    y|Y) PROCEED=true; break ;;
-    n|N) PROCEED=false; break ;;
+    y|Y) PROCEED=true ;;
+    n|N) PROCEED=false ;;
     *) PROCEED=false ;;
 esac
 
 if ! $PROCEED; then
     exit 0;
 fi
+
+echo "Checking your distrs. . ."
+
+classes=()
+names=()
+
+# # while IFS= read -r line; do
+# #     classes+=("$(echo "$line" | cut -d' ' -f1)")
+# #     names+=("$(echo "$line" | cut -d' ' -f2-)")
+# # done < <(grub-mkconfig 2>/dev/null | grep "^menuentry" | while read line; do
+# #     name=$(echo "$line" | grep -oP "menuentry '\\K[^']+")
+# #     class=$(echo "$line" | grep -oP '(?<=--class )[a-z0-9_-]+' | grep -v 'gnu\|os\|submenu' | head -1)
+# #     echo "$class $name"
+# # done | awk '!seen[$1]++')
+while IFS= read -r line; do
+    classes+=("$(echo "$line" | cut -d' ' -f1)")
+    names+=("$(echo "$line" | cut -d' ' -f2-)")
+done < <(sudo grub-mkconfig 2>/dev/null \
+  | grep '^menuentry' \
+  | grep -v 'submenu' \
+  | while IFS= read -r line; do
+      name=$(echo "$line"  | grep -oP "menuentry ['\"]\\K[^'\"]+")
+      class=$(echo "$line" | grep -oP '(?<=--class )[a-z0-9_-]+' \
+              | grep -v 'linux\|gnu\|os' | head -1)
+      echo "$class $name"
+  done | awk '!seen[$1]++')
+
+echo "Making virtual env for python. . ."
+VENV="$SCRIPT_DIR/assets/.venv"
+
+if [ ! -d "$VENV" ]; then
+    python3 -m venv "$VENV"
+    "$VENV/bin/pip" install -r "$SCRIPT_DIR/assets/requirements.txt"
+fi
+
+echo "Render frames"
+for i in "${!classes[@]}"; do
+    "$VENV/bin/python" "$SCRIPT_DIR/assets/create_images.py" "$i" "${classes[$i]}" "${names[@]}"
+done
+
 # Copy theme files
 echo "Installing theme..."
 cp -r "$THEME_NAME" "$THEME_DIR/" || {
