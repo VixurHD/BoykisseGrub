@@ -22,6 +22,11 @@ def sliceImg(img: Image.Image, x_start: int , width: int) -> Image.Image:
         x_start + width, img.height # to
     ) );
 
+def stripSuffix(s: str, suffix: str) -> tuple[str, bool]:
+    if s.endswith(suffix):
+        return s[:-len(suffix)], True
+    return s, False
+
 # Position the image horizontally to create a new image with a total width up to len_
 def tileInLenImg(img: Image.Image, len_: int) -> Image.Image:
     tiles_count: int = len_ // img.width;
@@ -103,6 +108,7 @@ def svgToPil(svg_path: T_PATH_STR, max_width: int, max_height: int, dpi: int = 9
     return Image.open(io.BytesIO(png_bytes)).convert("RGBA")
 
 def renderBackground(name_distr: str, screen_size: tuple[int, int] = (1920, 1080)) -> Image.Image:
+    name_distr, is_striped = stripSuffix(name_distr, "-submenu")
     img_logo: Image.Image = svgToPil(f"assets/images/distrs/{name_distr}/logo.svg", 862, 862)
     img_text: Image.Image = svgToPil(f"assets/images/distrs/{name_distr}/text.svg", 650, 180)
     img_canvas: Image.Image = Image.new("RGBA", screen_size, (0, 7, 17, 255));
@@ -216,9 +222,10 @@ if __name__ == "__main__":
     args = sys.argv;
     print(args);
     img_canvas = renderBackground(args[2]);
-    img_canvas = renderButtons(img_canvas, args[3:], int(args[1]), accentFromSvg(f"assets/images/distrs/{args[2]}/logo.svg"));
+    striped_name, is_striped = stripSuffix(args[2], "-submenu");
+    img_canvas = renderButtons(img_canvas, args[3:], int(args[1]), accentFromSvg(f"assets/images/distrs/{striped_name}/logo.svg"));
     save(img_canvas, f"Boykisser/icons/{args[2]}.png");
     save(img_canvas, f"Boykisser/os_{args[2]}.png");
-    save(img_canvas, f"Boykisser/icons/submenu-{args[2]}.png");
-    save(img_canvas, f"Boykisser/os_submenu-{args[2]}.png");
+    # save(img_canvas, f"Boykisser/icons/submenu-{args[2]}.png");
+    # save(img_canvas, f"Boykisser/os_submenu-{args[2]}.png");
 

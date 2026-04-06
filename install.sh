@@ -59,7 +59,7 @@ echo '
 
 # Ensure theme directory exists
 echo "Checking for theme directory..."
-mkdir -p "$SCRIPT_DIR/$THEME_DIR"
+mkdir -p "$THEME_DIR"
 
 PROCEED=false
 
@@ -92,7 +92,6 @@ while IFS= read -r line; do
     names+=("$(echo "$line" | cut -d' ' -f2-)")
 done < <(sudo grub-mkconfig 2>/dev/null \
   | grep '^menuentry' \
-  | grep -v 'submenu' \
   | while IFS= read -r line; do
       name=$(echo "$line"  | grep -oP "menuentry ['\"]\\K[^'\"]+")
       class=$(echo "$line" | grep -oP '(?<=--class )[a-z0-9_-]+' \
@@ -109,6 +108,7 @@ if [ ! -d "$VENV" ]; then
 fi
 
 echo "Render frames"
+mkdir -p "$SCRIPT_DIR/$THEME_NAME/icons"
 for i in "${!classes[@]}"; do
     "$VENV/bin/python" "$SCRIPT_DIR/assets/create_images.py" "$i" "${classes[$i]}" "${names[@]}"
 done
